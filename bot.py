@@ -1,4 +1,3 @@
-
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
@@ -9,11 +8,28 @@ from telegram.ext import (
     filters,
 )
 
+from flask import Flask
+from threading import Thread
+
 # Replace with your actual bot token from BotFather
 API_TOKEN = "7616920513:AAGnhctwnm_EjXjkXn_VMiDqFj8yMA65u1Y"
 
 # Replace with your group's chat ID
-GROUP_CHAT_ID = -4797719835# Example format for supergroups
+GROUP_CHAT_ID = -4797719835  # Example format for supergroups
+
+# Flask Web Server
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is alive and running!"
+
+def run_flask():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    thread = Thread(target=run_flask)
+    thread.start()
 
 # Dictionary to track user states
 user_states = {}
@@ -51,9 +67,11 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
         voice = update.message.voice
         file_id = voice.file_id
         await update.message.reply_text('Codkaaga waa la helay. Waad ku mahadsan tahay!')
-        # Forward the voice message to the group
-        await context.bot.send_voice(chat_id=GROUP_CHAT_ID, voice=file_id, caption=f"Voice message from {update.effective_user.first_name}")
-        # Reset user state
+        await context.bot.send_voice(
+            chat_id=GROUP_CHAT_ID,
+            voice=file_id,
+            caption=f"Voice message from {update.effective_user.first_name}"
+        )
         user_states[user_id] = None
     else:
         await update.message.reply_text('Fadlan dooro "Taabo 2 si aad cod u duubto" si aad cod u dirto.')
@@ -63,9 +81,10 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
     if user_states.get(user_id) == 'awaiting_text':
         text = update.message.text
         await update.message.reply_text(f'Fariintaada waa la helay: "{text}"')
-        # Forward the text message to the group
-        await context.bot.send_message(chat_id=GROUP_CHAT_ID, text=f"Message from {update.effective_user.first_name}: {text}")
-        # Reset user state
+        await context.bot.send_message(
+            chat_id=GROUP_CHAT_ID,
+            text=f"Message from {update.effective_user.first_name}: {text}"
+        )
         user_states[user_id] = None
     else:
         await update.message.reply_text('Fadlan dooro "Taabo 1 si aad farriin u qorto" si aad fariin u dirto.')
@@ -78,21 +97,16 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
 
 def main():
-    # Create the Application instance
+    keep_alive()  # 🔁 Start Flask keep-alive server
+
     application = Application.builder().token(API_TOKEN).build()
 
-    # Register command handlers
     application.add_handler(CommandHandler('start', start))
     application.add_handler(CommandHandler('help', help_command))
-
-    # Register button (callback query) handler
     application.add_handler(CallbackQueryHandler(button_selection_handler, pattern='^(voice_recording|text_message)$'))
-
-    # Register message handlers
     application.add_handler(MessageHandler(filters.VOICE, handle_voice_message))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_message))
 
-    # Start polling
     application.run_polling()
 
 if __name__ == '__main__':
